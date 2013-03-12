@@ -160,27 +160,26 @@ __global__ void gpu_convolutionGrayImage_gm_cm_d(const float *inputImage, float 
 
 
 // mode 3 (gray): using shared memory for image and globel memory for kernel access
-__global__ void gpu_convolutionGrayImage_sm_d(const float *inputImage, const float *kernel, float *outputImage,
-                                              int iWidth, int iHeight, int kRadiusX, int kRadiusY,
-                                              size_t iPitch, size_t kPitch)
-{
-  // make use of the constant MAXSHAREDMEMSIZE in order to define the shared memory size
+__global__ void gpu_convolutionGrayImage_sm_d(const float *inputImage,
+		const float *kernel, float *outputImage, int iWidth, int iHeight,
+		int kRadiusX, int kRadiusY, size_t iPitch, size_t kPitch) {
+	// make use of the constant MAXSHAREDMEMSIZE in order to define the shared memory size
 	__shared__ float sImage[MAXSHAREDMEMSIZE];
-	
+
 	int tileW = blockDim.x + 2 * kRadiusX;
 	int tileH = blockDim.y + 2 * kRadiusY;
-	
-	int numT =  blockDim.x * blockDim.y ;
+
+	int numT = blockDim.x * blockDim.y;
 	int total = tileW * tileH;
-	int N = ceilf((float)total / numT);
-	
+	int N = ceilf((float) total / numT);
+
 	int xindex = blockIdx.x * blockDim.x + threadIdx.x;
 	int yindex = blockIdx.y * blockDim.y + threadIdx.y;
-
-	int localIdx = threadIdx.x + blockDim.x*threadIdx.y ;
-	int shifted_xindex = xindex - kRadiusX;
-	int shifted_yindex = yindex - kRadiusY;
+	int shifted_xindex = blockIdx.x * blockDim.x - kRadiusX;
+	int shifted_yindex = blockIdx.y * blockDim.y - kRadiusY;
 	
+	int localIdx = threadIdx.x + blockDim.x * threadIdx.y;
+
 	int cur_loc_idx;
 	int xx;
 	int yy;
@@ -189,25 +188,32 @@ __global__ void gpu_convolutionGrayImage_sm_d(const float *inputImage, const flo
 	int cur_glob_idx;
 	for (int i = 0; i < N; i++) {
 		cur_loc_idx = localIdx + i * numT;
-		
-		yy = cur_loc_idx / tileW ;
-		xx = cur_loc_idx - yy * tileW;
-		
-		cur_shifted_x_index = shifted_xindex + xx;
-		cur_shifted_y_index = shifted_yindex + yy;
-		
-		cur_glob_idx = cur_shifted_x_index + cur_shifted_y_index*iPitch;
-		
-		if (localIdx + i * numT < total) {
+		if (cur_loc_idx < total && cur_loc_idx >= 0 ) {
+			xx = cur_loc_idx % tileW;
+			yy = cur_loc_idx / tileW;
+			
+			cur_shifted_x_index = shifted_xindex + xx;
+			cur_shifted_y_index = shifted_yindex + yy;
+
+			if (cur_shifted_x_index < 0)
+				cur_shifted_x_index = 0;
+			else if (cur_shifted_x_index >= iWidth)
+				cur_shifted_x_index = iWidth - 1;
+
+			if (cur_shifted_y_index < 0)
+				cur_shifted_y_index = 0;
+			else if (cur_shifted_y_index >= iHeight)
+				cur_shifted_y_index = iHeight - 1;
+
+			cur_glob_idx = cur_shifted_x_index + cur_shifted_y_index * iPitch;
+
 			sImage[cur_loc_idx] = inputImage[cur_glob_idx];
 		}
 	}
-	
+
 	__syncthreads();
-	
-  // ### implement me ### 
-//	int xindex = blockIdx.x * blockDim.x + threadIdx.x;
-//	int yindex = blockIdx.y * blockDim.y + threadIdx.y;
+
+	// ### implement me ### 
 	if (xindex >= 0 && xindex < iWidth && yindex >= 0 && yindex < iHeight) {
 		outputImage[xindex + yindex * iPitch] = 0;
 
@@ -215,31 +221,19 @@ __global__ void gpu_convolutionGrayImage_sm_d(const float *inputImage, const flo
 		const int kHeight = (kRadiusY << 1) + 1;
 
 		int x, y;
-		
-		// ### implement a convolution ### 
+		 //### implement a convolution ### 
 		for (int kx = 0; kx < kWidth; kx++) {
 			for (int ky = 0; ky < kHeight; ky++) {
-
-				x = kRadiusX + threadIdx.x + kx - kWidth / 2;
+				
+				x = kRadiusX + threadIdx.x + kx - kWidth / 2 ;
 				y = kRadiusY + threadIdx.y + ky - kHeight / 2;
-
-				if (x < 0)
-					x = 0;
-				else if (x >= iWidth)
-					x = iWidth - 1;
-
-				if (y < 0)
-					y = 0;
-				else if (y >= iHeight)
-					y = iHeight - 1;
 
 				outputImage[xindex + yindex * iPitch] += kernel[kx + ky
 						* kPitch] * sImage[x + y * tileW];
 			}
-		}
+		}		
 	}
 
- 
 }
 
 
@@ -254,18 +248,158 @@ __global__ void gpu_convolutionGrayImage_sm_cm_d(const float *inputImage, float 
   // make use of the constant MAXSHAREDMEMSIZE in order to define the shared memory size
 
   // ### implement me ### 
+	__shared__ float sImage[MAXSHAREDMEMSIZE];
+
+	int tileW = blockDim.x + 2 * kRadiusX;
+	int tileH = blockDim.y + 2 * kRadiusY;
+
+	int numT = blockDim.x * blockDim.y;
+	int total = tileW * tileH;
+	int N = ceilf((float) total / numT);
+
+	int xindex = blockIdx.x * blockDim.x + threadIdx.x;
+	int yindex = blockIdx.y * blockDim.y + threadIdx.y;
+	int shifted_xindex = blockIdx.x * blockDim.x - kRadiusX;
+	int shifted_yindex = blockIdx.y * blockDim.y - kRadiusY;
+	
+	int localIdx = threadIdx.x + blockDim.x * threadIdx.y;
+
+	int cur_loc_idx;
+	int xx;
+	int yy;
+	int cur_shifted_x_index;
+	int cur_shifted_y_index;
+	int cur_glob_idx;
+	for (int i = 0; i < N; i++) {
+		cur_loc_idx = localIdx + i * numT;
+		if (cur_loc_idx < total && cur_loc_idx >= 0 ) {
+			xx = cur_loc_idx % tileW;
+			yy = cur_loc_idx / tileW;
+			
+			cur_shifted_x_index = shifted_xindex + xx;
+			cur_shifted_y_index = shifted_yindex + yy;
+
+			if (cur_shifted_x_index < 0)
+				cur_shifted_x_index = 0;
+			else if (cur_shifted_x_index >= iWidth)
+				cur_shifted_x_index = iWidth - 1;
+
+			if (cur_shifted_y_index < 0)
+				cur_shifted_y_index = 0;
+			else if (cur_shifted_y_index >= iHeight)
+				cur_shifted_y_index = iHeight - 1;
+
+			cur_glob_idx = cur_shifted_x_index + cur_shifted_y_index * iPitch;
+
+			sImage[cur_loc_idx] = inputImage[cur_glob_idx];
+		}
+	}
+
+	__syncthreads();
+
+	// ### implement me ### 
+	if (xindex >= 0 && xindex < iWidth && yindex >= 0 && yindex < iHeight) {
+		outputImage[xindex + yindex * iPitch] = 0;
+
+		const int kWidth = (kRadiusX << 1) + 1;
+		const int kHeight = (kRadiusY << 1) + 1;
+
+		int x, y;
+		 //### implement a convolution ### 
+		for (int kx = 0; kx < kWidth; kx++) {
+			for (int ky = 0; ky < kHeight; ky++) {
+				
+				x = kRadiusX + threadIdx.x + kx - kWidth / 2 ;
+				y = kRadiusY + threadIdx.y + ky - kHeight / 2;
+
+				outputImage[xindex + yindex * iPitch] += constKernel[kx + ky
+						* kWidth] * sImage[x + y * tileW];
+			}
+		}		
+	}
 
 } 
 
 
 
-// mode 5 (gray): using dynamically allocated shared memory for image and constant memory for kernel access
-__global__ void gpu_convolutionGrayImage_dsm_cm_d(const float *inputImage, float *outputImage,
-                                              int iWidth, int iHeight, int kRadiusX, int kRadiusY,
-                                              size_t iPitch)
-{
 
-  // ### implement me ###  
+
+// mode 5 (gray): using dynamically allocated shared memory for image and constant memory for kernel access
+__global__ void gpu_convolutionGrayImage_dsm_cm_d(const float *inputImage,
+		float *outputImage, int iWidth, int iHeight, int kRadiusX,
+		int kRadiusY, size_t iPitch) {
+
+	// ### implement me ### 
+	// ### implement me ### 
+	extern __shared__ float sImage[];
+
+	int tileW = blockDim.x + 2 * kRadiusX;
+	int tileH = blockDim.y + 2 * kRadiusY;
+
+	int numT = blockDim.x * blockDim.y;
+	int total = tileW * tileH;
+	int N = ceilf((float) total / numT);
+
+	int xindex = blockIdx.x * blockDim.x + threadIdx.x;
+	int yindex = blockIdx.y * blockDim.y + threadIdx.y;
+	int shifted_xindex = blockIdx.x * blockDim.x - kRadiusX;
+	int shifted_yindex = blockIdx.y * blockDim.y - kRadiusY;
+
+	int localIdx = threadIdx.x + blockDim.x * threadIdx.y;
+
+	int cur_loc_idx;
+	int xx;
+	int yy;
+	int cur_shifted_x_index;
+	int cur_shifted_y_index;
+	int cur_glob_idx;
+	for (int i = 0; i < N; i++) {
+		cur_loc_idx = localIdx + i * numT;
+		if (cur_loc_idx < total && cur_loc_idx >= 0) {
+			xx = cur_loc_idx % tileW;
+			yy = cur_loc_idx / tileW;
+
+			cur_shifted_x_index = shifted_xindex + xx;
+			cur_shifted_y_index = shifted_yindex + yy;
+
+			if (cur_shifted_x_index < 0)
+				cur_shifted_x_index = 0;
+			else if (cur_shifted_x_index >= iWidth)
+				cur_shifted_x_index = iWidth - 1;
+
+			if (cur_shifted_y_index < 0)
+				cur_shifted_y_index = 0;
+			else if (cur_shifted_y_index >= iHeight)
+				cur_shifted_y_index = iHeight - 1;
+
+			cur_glob_idx = cur_shifted_x_index + cur_shifted_y_index * iPitch;
+
+			sImage[cur_loc_idx] = inputImage[cur_glob_idx];
+		}
+	}
+
+	__syncthreads();
+
+	// ### implement me ### 
+	if (xindex >= 0 && xindex < iWidth && yindex >= 0 && yindex < iHeight) {
+		outputImage[xindex + yindex * iPitch] = 0;
+
+		const int kWidth = (kRadiusX << 1) + 1;
+		const int kHeight = (kRadiusY << 1) + 1;
+
+		int x, y;
+		//### implement a convolution ### 
+		for (int kx = 0; kx < kWidth; kx++) {
+			for (int ky = 0; ky < kHeight; ky++) {
+
+				x = kRadiusX + threadIdx.x + kx - kWidth / 2;
+				y = kRadiusY + threadIdx.y + ky - kHeight / 2;
+
+				outputImage[xindex + yindex * iPitch] += constKernel[kx + ky
+						* kWidth] * sImage[x + y * tileW];
+			}
+		}
+	}
 
 } 
 
@@ -412,12 +546,92 @@ __global__ void gpu_convolutionInterleavedRGB_dsm_cm_d(const float3 *inputImage,
   const int x = blockIdx.x * blockDim.x + threadIdx.x;
   const int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-  float3 value = make_float3(0.0f, 0.0f, 0.0f);
 
+
+	// ### implement me ### 
+	// ### implement me ### 
+	extern __shared__ float3 sImagef3[];
+
+	int tileW = blockDim.x + 2 * kRadiusX;
+	int tileH = blockDim.y + 2 * kRadiusY;
+
+	int numT = blockDim.x * blockDim.y;
+	int total = tileW * tileH;
+	int N = ceilf((float) total / numT);
+
+	int xindex = blockIdx.x * blockDim.x + threadIdx.x;
+	int yindex = blockIdx.y * blockDim.y + threadIdx.y;
+	int shifted_xindex = blockIdx.x * blockDim.x - kRadiusX;
+	int shifted_yindex = blockIdx.y * blockDim.y - kRadiusY;
+
+	int localIdx = threadIdx.x + blockDim.x * threadIdx.y;
+
+	int cur_loc_idx;
+	int xx;
+	int yy;
+	int cur_shifted_x_index;
+	int cur_shifted_y_index;
+	int cur_glob_idx;
+	for (int i = 0; i < N; i++) {
+		cur_loc_idx = localIdx + i * numT;
+		if (cur_loc_idx < total && cur_loc_idx >= 0) {
+			xx = cur_loc_idx % tileW;
+			yy = cur_loc_idx / tileW;
+
+			cur_shifted_x_index = shifted_xindex + xx;
+			cur_shifted_y_index = shifted_yindex + yy;
+
+			if (cur_shifted_x_index < 0)
+				cur_shifted_x_index = 0;
+			else if (cur_shifted_x_index >= iWidth)
+				cur_shifted_x_index = iWidth - 1;
+
+			if (cur_shifted_y_index < 0)
+				cur_shifted_y_index = 0;
+			else if (cur_shifted_y_index >= iHeight)
+				cur_shifted_y_index = iHeight - 1;
+
+			//cur_glob_idx = cur_shifted_x_index + cur_shifted_y_index * iPitch;
+
+			sImagef3[cur_loc_idx] = *((float3*)(((char*)inputImage) + cur_shifted_y_index*iPitchBytes) + cur_shifted_x_index);//inputImage[cur_glob_idx];
+		}
+	}
+
+	__syncthreads();
+
+	// ### implement me ### 
+	if (xindex >= 0 && xindex < iWidth && yindex >= 0 && yindex < iHeight) {
+		//outputImage[xindex + yindex * iPitch] = 0;
+		 float3 value = make_float3(0.0f, 0.0f, 0.0f);
+
+		const int kWidth = (kRadiusX << 1) + 1;
+		const int kHeight = (kRadiusY << 1) + 1;
+
+		int x, y;
+		//### implement a convolution ### 
+		for (int kx = 0; kx < kWidth; kx++) {
+			for (int ky = 0; ky < kHeight; ky++) {
+
+				x = kRadiusX + threadIdx.x + kx - kWidth / 2;
+				y = kRadiusY + threadIdx.y + ky - kHeight / 2;
+
+				value.x += constKernel[kx + ky
+						* kWidth] * sImagef3[x + y * tileW].x;
+				
+				value.y += constKernel[kx + ky
+						* kWidth] * sImagef3[x + y * tileW].y;
+				
+				value.z += constKernel[kx + ky
+						* kWidth] * sImagef3[x + y * tileW].z;
+				
+			}
+		}
+		 *((float3*)(((char*)outputImage) + yindex*iPitchBytes) + xindex) = value; 
+	}
 
   // ### implement me ### 
 
-  *((float3*)(((char*)outputImage) + y*iPitchBytes) + x) = value; 
+ 
 } 
 
 
@@ -444,6 +658,25 @@ __global__ void gpu_convolutionInterleavedRGB_tex_cm_d(float3 *outputImage,
 {
 
   // ### implement me ### 
+	  const int x = blockIdx.x * blockDim.x + threadIdx.x;
+	  const int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+	  if (x >= iWidth || y >= iHeight) return;
+
+	  const float xx = (float)(x - kRadiusX) + TEXTURE_OFFSET;
+	  const float yy = (float)(y - kRadiusY) + TEXTURE_OFFSET;
+	  const int kWidth  = (kRadiusX<<1) + 1;
+	  const int kHeight = (kRadiusY<<1) + 1;
+	  float3 value = make_float3(0.0f, 0.0f, 0.0f);
+
+	  for (int yk = 0; yk < kHeight; yk++)
+	    for (int xk = 0; xk < kWidth; xk++) {
+	     float4 tmp = tex2D(tex_ImageF4, xx-xk, yy-yk);
+	      value.x +=  tmp.x * constKernel[yk*kWidth + xk];
+	      value.y +=  tmp.y * constKernel[yk*kWidth + xk];
+	      value.z +=  tmp.z * constKernel[yk*kWidth + xk];
+	    }
+	  *((float3*)(((char*)outputImage) + y*oPitchBytes) + x) = value; 
 
 }
 
