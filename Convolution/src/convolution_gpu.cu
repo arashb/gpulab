@@ -82,38 +82,35 @@ __global__ void gpu_convolutionGrayImage_gm_d(const float *inputImage,
 
 	int xindex = blockIdx.x * blockDim.x + threadIdx.x;
 	int yindex = blockIdx.y * blockDim.y + threadIdx.y;
-	if (xindex >= 0 && xindex < iWidth && yindex >= 0 && yindex < iHeight)
-		outputImage[xindex + yindex*iPitch] = 0;
-	
-	const int kWidth = (kRadiusX << 1) + 1;
-	const int kHeight = (kRadiusY << 1) + 1;
+	if (xindex >= 0 && xindex < iWidth && yindex >= 0 && yindex < iHeight) {
+		outputImage[xindex + yindex * iPitch] = 0;
 
-	int x, y;
-	float tmp = 0;
-	// ### implement a convolution ### 
-	for (int kx = 0; kx < kWidth; kx++) {
-		for (int ky = 0; ky < kHeight; ky++) {
+		const int kWidth = (kRadiusX << 1) + 1;
+		const int kHeight = (kRadiusY << 1) + 1;
 
-			x = xindex + kx - kWidth / 2;
-			y = yindex + ky - kHeight / 2;
+		int x, y;
+		// ### implement a convolution ### 
+		for (int kx = 0; kx < kWidth; kx++) {
+			for (int ky = 0; ky < kHeight; ky++) {
 
-			if (x < 0)
-				x = 0;
-			else if (x >= iWidth)
-				x = iWidth - 1;
+				x = xindex + kx - kWidth / 2;
+				y = yindex + ky - kHeight / 2;
 
-			if (y < 0)
-				y = 0;
-			else if (y >= iHeight)
-				y = iHeight - 1;
+				if (x < 0)
+					x = 0;
+				else if (x >= iWidth)
+					x = iWidth - 1;
 
-			if ( xindex >= 0 && xindex < iWidth && yindex >= 0 && yindex < iHeight)
-				outputImage[xindex + yindex*iPitch] += kernel[kx + ky * kPitch] * inputImage[x + y * iPitch];
-//			tmp += kernel[kx + ky*kPitch] * inputImage[x + y*iPitch];
+				if (y < 0)
+					y = 0;
+				else if (y >= iHeight)
+					y = iHeight - 1;
+
+				outputImage[xindex + yindex * iPitch] += kernel[kx + ky
+						* kPitch] * inputImage[x + y * iPitch];
+			}
 		}
 	}
-//	if ( xindex >= 0 && xindex < iWidth && yindex > 0 && yindex < iHeight)
-//		outputImage[xindex + yindex*iPitch] = tmp; 
 
 }
 
@@ -125,6 +122,37 @@ __global__ void gpu_convolutionGrayImage_gm_cm_d(const float *inputImage, float 
                                               size_t iPitch)
 {
 	// ### implement me ###
+	int xindex = blockIdx.x * blockDim.x + threadIdx.x;
+	int yindex = blockIdx.y * blockDim.y + threadIdx.y;
+	if (xindex >= 0 && xindex < iWidth && yindex >= 0 && yindex < iHeight) {
+		outputImage[xindex + yindex * iPitch] = 0;
+
+		const int kWidth = (kRadiusX << 1) + 1;
+		const int kHeight = (kRadiusY << 1) + 1;
+
+		int x, y;
+		// ### implement a convolution ### 
+		for (int kx = 0; kx < kWidth; kx++) {
+			for (int ky = 0; ky < kHeight; ky++) {
+
+				x = xindex + kx - kWidth / 2;
+				y = yindex + ky - kHeight / 2;
+
+				if (x < 0)
+					x = 0;
+				else if (x >= iWidth)
+					x = iWidth - 1;
+
+				if (y < 0)
+					y = 0;
+				else if (y >= iHeight)
+					y = iHeight - 1;
+
+				outputImage[xindex + yindex * iPitch]  += constKernel[kx + ky
+						* kWidth] * inputImage[x + y * iPitch];
+			}
+		}
+	}
 
 }
 
@@ -137,8 +165,80 @@ __global__ void gpu_convolutionGrayImage_sm_d(const float *inputImage, const flo
                                               size_t iPitch, size_t kPitch)
 {
   // make use of the constant MAXSHAREDMEMSIZE in order to define the shared memory size
+	__shared__ float sImage[MAXSHAREDMEMSIZE];
+	
+	int tileW = blockDim.x + 2 * kRadiusX;
+	int tileH = blockDim.y + 2 * kRadiusY;
+	
+	int numT =  blockDim.x * blockDim.y ;
+	int total = tileW * tileH;
+	int N = ceilf((float)total / numT);
+	
+	int xindex = blockIdx.x * blockDim.x + threadIdx.x;
+	int yindex = blockIdx.y * blockDim.y + threadIdx.y;
 
+	int localIdx = threadIdx.x + blockDim.x*threadIdx.y ;
+	int shifted_xindex = xindex - kRadiusX;
+	int shifted_yindex = yindex - kRadiusY;
+	
+	int cur_loc_idx;
+	int xx;
+	int yy;
+	int cur_shifted_x_index;
+	int cur_shifted_y_index;
+	int cur_glob_idx;
+	for (int i = 0; i < N; i++) {
+		cur_loc_idx = localIdx + i * numT;
+		
+		yy = cur_loc_idx / tileW ;
+		xx = cur_loc_idx - yy * tileW;
+		
+		cur_shifted_x_index = shifted_xindex + xx;
+		cur_shifted_y_index = shifted_yindex + yy;
+		
+		cur_glob_idx = cur_shifted_x_index + cur_shifted_y_index*iPitch;
+		
+		if (localIdx + i * numT < total) {
+			sImage[cur_loc_idx] = inputImage[cur_glob_idx];
+		}
+	}
+	
+	__syncthreads();
+	
   // ### implement me ### 
+//	int xindex = blockIdx.x * blockDim.x + threadIdx.x;
+//	int yindex = blockIdx.y * blockDim.y + threadIdx.y;
+	if (xindex >= 0 && xindex < iWidth && yindex >= 0 && yindex < iHeight) {
+		outputImage[xindex + yindex * iPitch] = 0;
+
+		const int kWidth = (kRadiusX << 1) + 1;
+		const int kHeight = (kRadiusY << 1) + 1;
+
+		int x, y;
+		
+		// ### implement a convolution ### 
+		for (int kx = 0; kx < kWidth; kx++) {
+			for (int ky = 0; ky < kHeight; ky++) {
+
+				x = kRadiusX + threadIdx.x + kx - kWidth / 2;
+				y = kRadiusY + threadIdx.y + ky - kHeight / 2;
+
+				if (x < 0)
+					x = 0;
+				else if (x >= iWidth)
+					x = iWidth - 1;
+
+				if (y < 0)
+					y = 0;
+				else if (y >= iHeight)
+					y = iHeight - 1;
+
+				outputImage[xindex + yindex * iPitch] += kernel[kx + ky
+						* kPitch] * sImage[x + y * tileW];
+			}
+		}
+	}
+
  
 }
 
