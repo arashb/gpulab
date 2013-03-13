@@ -219,7 +219,6 @@ __global__ void gpu_convolutionGrayImage_sm_d(const float *inputImage,
 
 		const int kWidth = (kRadiusX << 1) + 1;
 		const int kHeight = (kRadiusY << 1) + 1;
-
 		int x, y;
 		 //### implement a convolution ### 
 		for (int kx = 0; kx < kWidth; kx++) {
@@ -328,9 +327,7 @@ __global__ void gpu_convolutionGrayImage_sm_cm_d(const float *inputImage, float 
 __global__ void gpu_convolutionGrayImage_dsm_cm_d(const float *inputImage,
 		float *outputImage, int iWidth, int iHeight, int kRadiusX,
 		int kRadiusY, size_t iPitch) {
-
-	// ### implement me ### 
-	// ### implement me ### 
+ 
 	extern __shared__ float sImage[];
 
 	int tileW = blockDim.x + 2 * kRadiusX;
@@ -535,16 +532,13 @@ void gpu_convolutionRGB(const float *inputImage, const float *kernel, float *out
 // RGB Image Functions (for interleaved color channels)
 //----------------------------------------------------------------------------
 
-
-
-
 // mode 5 (interleaved): using dynamically allocated shared memory for image and constant memory for kernel access
 __global__ void gpu_convolutionInterleavedRGB_dsm_cm_d(const float3 *inputImage, float3 *outputImage,
                                               int iWidth, int iHeight, int kRadiusX, int kRadiusY,
                                               size_t iPitchBytes)
 {
-  const int x = blockIdx.x * blockDim.x + threadIdx.x;
-  const int y = blockIdx.y * blockDim.y + threadIdx.y;
+//  const int x = blockIdx.x * blockDim.x + threadIdx.x;
+//  const int y = blockIdx.y * blockDim.y + threadIdx.y;
 
 
 
@@ -571,7 +565,7 @@ __global__ void gpu_convolutionInterleavedRGB_dsm_cm_d(const float3 *inputImage,
 	int yy;
 	int cur_shifted_x_index;
 	int cur_shifted_y_index;
-	int cur_glob_idx;
+//	int cur_glob_idx;
 	for (int i = 0; i < N; i++) {
 		cur_loc_idx = localIdx + i * numT;
 		if (cur_loc_idx < total && cur_loc_idx >= 0) {
@@ -654,29 +648,30 @@ __global__ void gpu_ImageFloat3ToFloat4_d(const float3 *inputImage, float4 *outp
 
 // mode 6 (interleaved): using texture memory for image and constant memory for kernel access
 __global__ void gpu_convolutionInterleavedRGB_tex_cm_d(float3 *outputImage,
-    int iWidth, int iHeight, int kRadiusX, int kRadiusY, size_t oPitchBytes)
-{
+		int iWidth, int iHeight, int kRadiusX, int kRadiusY, size_t oPitchBytes) {
 
-  // ### implement me ### 
-	  const int x = blockIdx.x * blockDim.x + threadIdx.x;
-	  const int y = blockIdx.y * blockDim.y + threadIdx.y;
+	// ### implement me ### 
+	const int x = blockIdx.x * blockDim.x + threadIdx.x;
+	const int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-	  if (x >= iWidth || y >= iHeight) return;
+	if (x >= iWidth || y >= iHeight)
+		return;
 
-	  const float xx = (float)(x - kRadiusX) + TEXTURE_OFFSET;
-	  const float yy = (float)(y - kRadiusY) + TEXTURE_OFFSET;
-	  const int kWidth  = (kRadiusX<<1) + 1;
-	  const int kHeight = (kRadiusY<<1) + 1;
-	  float3 value = make_float3(0.0f, 0.0f, 0.0f);
-
-	  for (int yk = 0; yk < kHeight; yk++)
-	    for (int xk = 0; xk < kWidth; xk++) {
-	     float4 tmp = tex2D(tex_ImageF4, xx-xk, yy-yk);
-	      value.x +=  tmp.x * constKernel[yk*kWidth + xk];
-	      value.y +=  tmp.y * constKernel[yk*kWidth + xk];
-	      value.z +=  tmp.z * constKernel[yk*kWidth + xk];
-	    }
-	  *((float3*)(((char*)outputImage) + y*oPitchBytes) + x) = value; 
+	const float xx = (float) (x - kRadiusX) + TEXTURE_OFFSET;
+	const float yy = (float) (y - kRadiusY) + TEXTURE_OFFSET;
+	const int kWidth = (kRadiusX << 1) + 1;
+	const int kHeight = (kRadiusY << 1) + 1;
+	float3 value = make_float3(0.0f, 0.0f, 0.0f);
+	float tmpKernel;
+	for (int yk = 0; yk < kHeight; yk++)
+		for (int xk = 0; xk < kWidth; xk++) {
+			tmpKernel = constKernel[yk * kWidth + xk];
+			float4 tmp = tex2D(tex_ImageF4, xx - xk, yy - yk);
+			value.x += tmp.x * tmpKernel;
+			value.y += tmp.y * tmpKernel;
+			value.z += tmp.z * tmpKernel;
+		}
+	*((float3*) (((char*) outputImage) + y * oPitchBytes) + x) = value;
 
 }
 
