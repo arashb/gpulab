@@ -180,50 +180,83 @@ __global__ void gradient_magnitude_d(const float *inputImage, float *outputImage
 	  const int x = blockIdx.x * blockDim.x + threadIdx.x;
 	  const int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-	  __shared__ float ux[BW+2][BH];
+//	  __shared__ float ux[BW+2][BH];
+//
+//
+//	  if (x < iWidth && y < iHeight) {
+//	    ux[threadIdx.x+1][threadIdx.y] = *((float*)((char*)inputImage + y*iPitchBytes)+x);
+//
+//	    if (x == 0) ux[threadIdx.x][threadIdx.y] = ux[threadIdx.x+1][threadIdx.y];
+//	    else if (threadIdx.x == 0) ux[threadIdx.x][threadIdx.y] = *((float*)((char*)inputImage + y*iPitchBytes)+x-1);
+//
+//	    if (x == (iWidth-1)) ux[threadIdx.x+2][threadIdx.y] = ux[threadIdx.x+1][threadIdx.y];
+//	    else if (threadIdx.x == blockDim.x-1) ux[threadIdx.x+2][threadIdx.y] = *((float*)((char*)inputImage + y*iPitchBytes)+x+1);
+//	  }
+//
+//	  __syncthreads();
+//
+//	__shared__ float uy[BW][BH+2];
+//
+//	if (x < iWidth && y < iHeight) {
+//		uy[threadIdx.x][threadIdx.y + 1] = *((float*) ((char*) inputImage + y
+//				* iPitchBytes) + x);
+//
+//		if (y == 0)
+//			uy[threadIdx.x][threadIdx.y] = uy[threadIdx.x][threadIdx.y + 1];
+//		else if (threadIdx.y == 0)
+//			uy[threadIdx.x][threadIdx.y] = *((float*) ((char*) inputImage + (y
+//					- 1) * iPitchBytes) + x);
+//
+//		if (y == (iHeight - 1))
+//			uy[threadIdx.x][threadIdx.y + 2] = uy[threadIdx.x][threadIdx.y + 1];
+//		else if (threadIdx.y == blockDim.y - 1)
+//			uy[threadIdx.x][threadIdx.y + 2] = *((float*) ((char*) inputImage
+//					+ (y + 1) * iPitchBytes) + x);
+//	}
+//
+//	__syncthreads();
+//	  
+//	  float tempDerX;
+//	  float tempDerY;
+//	  if (x < iWidth && y < iHeight) {
+//		 tempDerX = 0.5f*(ux[threadIdx.x + 2][threadIdx.y]-ux[threadIdx.x][threadIdx.y]);
+//		 tempDerY = 0.5f*(uy[threadIdx.x][threadIdx.y + 2] - uy[threadIdx.x][threadIdx.y]);
+//	    *((float*)(((char*)outputImage) + y*iPitchBytes)+ x) = sqrt( tempDerX*tempDerX + tempDerY*tempDerY );
+//	  }
 
-
+	  __shared__ float u[BW+2][BH+2];
+	
+	
 	  if (x < iWidth && y < iHeight) {
-	    ux[threadIdx.x+1][threadIdx.y] = *((float*)((char*)inputImage + y*iPitchBytes)+x);
-
-	    if (x == 0) ux[threadIdx.x][threadIdx.y] = ux[threadIdx.x+1][threadIdx.y];
-	    else if (threadIdx.x == 0) ux[threadIdx.x][threadIdx.y] = *((float*)((char*)inputImage + y*iPitchBytes)+x-1);
-
-	    if (x == (iWidth-1)) ux[threadIdx.x+2][threadIdx.y] = ux[threadIdx.x+1][threadIdx.y];
-	    else if (threadIdx.x == blockDim.x-1) ux[threadIdx.x+2][threadIdx.y] = *((float*)((char*)inputImage + y*iPitchBytes)+x+1);
-	  }
-
-	  __syncthreads();
-
-	__shared__ float uy[BW][BH+2];
-
-	if (x < iWidth && y < iHeight) {
-		uy[threadIdx.x][threadIdx.y + 1] = *((float*) ((char*) inputImage + y
-				* iPitchBytes) + x);
-
+		u[threadIdx.x+1][threadIdx.y+1] = *((float*)((char*)inputImage + y*iPitchBytes)+x);
+	
+		if (x == 0) u[threadIdx.x][threadIdx.y+1] = u[threadIdx.x+1][threadIdx.y+1];
+		else if (threadIdx.x == 0) u[threadIdx.x][threadIdx.y+1] = *((float*)((char*)inputImage + y*iPitchBytes)+x-1);
+	
+		if (x == (iWidth-1)) u[threadIdx.x+2][threadIdx.y+1] = u[threadIdx.x+1][threadIdx.y+1];
+		else if (threadIdx.x == blockDim.x-1) u[threadIdx.x+2][threadIdx.y+1] = *((float*)((char*)inputImage + y*iPitchBytes)+x+1);
+		
 		if (y == 0)
-			uy[threadIdx.x][threadIdx.y] = uy[threadIdx.x][threadIdx.y + 1];
+			u[threadIdx.x+1][threadIdx.y] = u[threadIdx.x+1][threadIdx.y + 1];
 		else if (threadIdx.y == 0)
-			uy[threadIdx.x][threadIdx.y] = *((float*) ((char*) inputImage + (y
+			u[threadIdx.x+1][threadIdx.y] = *((float*) ((char*) inputImage + (y
 					- 1) * iPitchBytes) + x);
 
 		if (y == (iHeight - 1))
-			uy[threadIdx.x][threadIdx.y + 2] = uy[threadIdx.x][threadIdx.y + 1];
+			u[threadIdx.x+1][threadIdx.y + 2] = u[threadIdx.x+1][threadIdx.y + 1];
 		else if (threadIdx.y == blockDim.y - 1)
-			uy[threadIdx.x][threadIdx.y + 2] = *((float*) ((char*) inputImage
+			u[threadIdx.x+1][threadIdx.y + 2] = *((float*) ((char*) inputImage
 					+ (y + 1) * iPitchBytes) + x);
-	}
-
-	__syncthreads();
-	  
+		
+	  }
+	  __syncthreads();
 	  float tempDerX;
 	  float tempDerY;
 	  if (x < iWidth && y < iHeight) {
-		 tempDerX = 0.5f*(ux[threadIdx.x + 2][threadIdx.y]-ux[threadIdx.x][threadIdx.y]);
-		 tempDerY = 0.5f*(uy[threadIdx.x][threadIdx.y + 2] - uy[threadIdx.x][threadIdx.y]);
-	    *((float*)(((char*)outputImage) + y*iPitchBytes)+ x) = sqrt( tempDerX*tempDerX + tempDerY*tempDerY );
+		 tempDerX = 0.5f*(u[threadIdx.x + 2][threadIdx.y+1]-u[threadIdx.x][threadIdx.y+1]);
+		 tempDerY = 0.5f*(u[threadIdx.x+1][threadIdx.y + 2] - u[threadIdx.x+1][threadIdx.y]);
+		*((float*)(((char*)outputImage) + y*iPitchBytes)+ x) = sqrt( tempDerX*tempDerX + tempDerY*tempDerY );
 	  }
-
 }
 
 
@@ -234,69 +267,98 @@ __global__ void gradient_magnitude_d(const float3 *inputImage, float3 *outputIma
                                      int iWidth, int iHeight, size_t iPitchBytes)
 {
 
-  // ### implement me ### 
+//  // ### implement me ### 
 	const int x = blockIdx.x * blockDim.x + threadIdx.x;
 	const int y = blockIdx.y * blockDim.y + threadIdx.y;
-	float3 xValue;
-	__shared__ float3 ux[BW+2][BH];
+//	float3 xValue;
+//	__shared__ float3 ux[BW+2][BH];
+//
+//	if (x < iWidth && y < iHeight) {
+//		ux[threadIdx.x + 1][threadIdx.y] = *((float3*) ((char*) inputImage + y
+//				* iPitchBytes) + x);
+//
+//		if (x == 0)
+//			ux[threadIdx.x][threadIdx.y] = ux[threadIdx.x + 1][threadIdx.y];
+//		else if (threadIdx.x == 0)
+//			ux[threadIdx.x][threadIdx.y] = *((float3*) ((char*) inputImage + y
+//					* iPitchBytes) + x - 1);
+//
+//		if (x == (iWidth - 1))
+//			ux[threadIdx.x + 2][threadIdx.y] = ux[threadIdx.x + 1][threadIdx.y];
+//		else if (threadIdx.x == blockDim.x - 1)
+//			ux[threadIdx.x + 2][threadIdx.y] = *((float3*) ((char*) inputImage
+//					+ y * iPitchBytes) + x + 1);
+//	}
+//
+//	__syncthreads();
+//	
+//	  float3 yValue;
+//	__shared__ float3 uy[BW][BH+2];
+//
+//	if (x < iWidth && y < iHeight) {
+//		uy[threadIdx.x][threadIdx.y + 1] = *((float3*) ((char*) inputImage + y
+//				* iPitchBytes) + x);
+//
+//		if (y == 0)
+//			uy[threadIdx.x][threadIdx.y] = uy[threadIdx.x][threadIdx.y + 1];
+//		else if (threadIdx.y == 0)
+//			uy[threadIdx.x][threadIdx.y] = *((float3*) ((char*) inputImage + (y
+//					- 1) * iPitchBytes) + x);
+//
+//		if (y == (iHeight - 1))
+//			uy[threadIdx.x][threadIdx.y + 2] = uy[threadIdx.x][threadIdx.y + 1];
+//		else if (threadIdx.y == blockDim.y - 1)
+//			uy[threadIdx.x][threadIdx.y + 2] = *((float3*) ((char*) inputImage
+//					+ (y + 1) * iPitchBytes) + x);
+//	}
+//
+//	__syncthreads();
 
-	if (x < iWidth && y < iHeight) {
-		ux[threadIdx.x + 1][threadIdx.y] = *((float3*) ((char*) inputImage + y
-				* iPitchBytes) + x);
-
-		if (x == 0)
-			ux[threadIdx.x][threadIdx.y] = ux[threadIdx.x + 1][threadIdx.y];
-		else if (threadIdx.x == 0)
-			ux[threadIdx.x][threadIdx.y] = *((float3*) ((char*) inputImage + y
-					* iPitchBytes) + x - 1);
-
-		if (x == (iWidth - 1))
-			ux[threadIdx.x + 2][threadIdx.y] = ux[threadIdx.x + 1][threadIdx.y];
-		else if (threadIdx.x == blockDim.x - 1)
-			ux[threadIdx.x + 2][threadIdx.y] = *((float3*) ((char*) inputImage
-					+ y * iPitchBytes) + x + 1);
-	}
-
-	__syncthreads();
+	  __shared__ float3 u[BW+2][BH+2];
 	
-	  float3 yValue;
-	__shared__ float3 uy[BW][BH+2];
-
-	if (x < iWidth && y < iHeight) {
-		uy[threadIdx.x][threadIdx.y + 1] = *((float3*) ((char*) inputImage + y
-				* iPitchBytes) + x);
-
+	
+	  if (x < iWidth && y < iHeight) {
+		u[threadIdx.x+1][threadIdx.y+1] = *((float3*)((char*)inputImage + y*iPitchBytes)+x);
+	
+		if (x == 0) u[threadIdx.x][threadIdx.y+1] = u[threadIdx.x+1][threadIdx.y+1];
+		else if (threadIdx.x == 0) u[threadIdx.x][threadIdx.y+1] = *((float3*)((char*)inputImage + y*iPitchBytes)+x-1);
+	
+		if (x == (iWidth-1)) u[threadIdx.x+2][threadIdx.y+1] = u[threadIdx.x+1][threadIdx.y+1];
+		else if (threadIdx.x == blockDim.x-1) u[threadIdx.x+2][threadIdx.y+1] = *((float3*)((char*)inputImage + y*iPitchBytes)+x+1);
+		
 		if (y == 0)
-			uy[threadIdx.x][threadIdx.y] = uy[threadIdx.x][threadIdx.y + 1];
+			u[threadIdx.x+1][threadIdx.y] = u[threadIdx.x+1][threadIdx.y + 1];
 		else if (threadIdx.y == 0)
-			uy[threadIdx.x][threadIdx.y] = *((float3*) ((char*) inputImage + (y
+			u[threadIdx.x+1][threadIdx.y] = *((float3*) ((char*) inputImage + (y
 					- 1) * iPitchBytes) + x);
 
 		if (y == (iHeight - 1))
-			uy[threadIdx.x][threadIdx.y + 2] = uy[threadIdx.x][threadIdx.y + 1];
+			u[threadIdx.x+1][threadIdx.y + 2] = u[threadIdx.x+1][threadIdx.y + 1];
 		else if (threadIdx.y == blockDim.y - 1)
-			uy[threadIdx.x][threadIdx.y + 2] = *((float3*) ((char*) inputImage
+			u[threadIdx.x+1][threadIdx.y + 2] = *((float3*) ((char*) inputImage
 					+ (y + 1) * iPitchBytes) + x);
-	}
-
-	__syncthreads();
-
+		
+	  }
+	  __syncthreads();
+	  
 	float3 normValue;
+	float3 xValue;
+	float3 yValue;
 	if (x < iWidth && y < iHeight) {
 		// x derivatives 
-		xValue.x = 0.5f * (ux[threadIdx.x + 2][threadIdx.y].x
-				- ux[threadIdx.x][threadIdx.y].x);
-		xValue.y = 0.5f * (ux[threadIdx.x + 2][threadIdx.y].y
-				- ux[threadIdx.x][threadIdx.y].y);
-		xValue.z = 0.5f * (ux[threadIdx.x + 2][threadIdx.y].z
-				- ux[threadIdx.x][threadIdx.y].z);
+		xValue.x = 0.5f * (u[threadIdx.x + 2][threadIdx.y+1].x
+				- u[threadIdx.x][threadIdx.y+1].x);
+		xValue.y = 0.5f * (u[threadIdx.x + 2][threadIdx.y+1].y
+				- u[threadIdx.x][threadIdx.y+1].y);
+		xValue.z = 0.5f * (u[threadIdx.x + 2][threadIdx.y+1].z
+				- u[threadIdx.x][threadIdx.y+1].z);
 		// y derivatives 
-		yValue.x = 0.5f * (uy[threadIdx.x][threadIdx.y + 2].x
-				- uy[threadIdx.x][threadIdx.y].x);
-		yValue.y = 0.5f * (uy[threadIdx.x][threadIdx.y + 2].y
-				- uy[threadIdx.x][threadIdx.y].y);
-		yValue.z = 0.5f * (uy[threadIdx.x][threadIdx.y + 2].z
-				- uy[threadIdx.x][threadIdx.y].z);
+		yValue.x = 0.5f * (u[threadIdx.x+1][threadIdx.y + 2].x
+				- u[threadIdx.x+1][threadIdx.y].x);
+		yValue.y = 0.5f * (u[threadIdx.x+1][threadIdx.y + 2].y
+				- u[threadIdx.x+1][threadIdx.y].y);
+		yValue.z = 0.5f * (u[threadIdx.x+1][threadIdx.y + 2].z
+				- u[threadIdx.x+1][threadIdx.y].z);
 		
 		normValue.x = sqrt(xValue.x*xValue.x + yValue.x*yValue.x);
 		normValue.y = sqrt(xValue.y*xValue.y + yValue.y*yValue.y);
