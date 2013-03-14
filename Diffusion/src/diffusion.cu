@@ -403,7 +403,7 @@ __global__ void compute_tv_diffusivity_shared
 	 tmpGrad = sqrt( tempDerX*tempDerX + tempDerY*tempDerY );
 	 d_output[idx] = 1.0 / sqrt(tmpGrad*tmpGrad + TV_EPSILON);
   }
-  // ### implement me ###
+
 }
 
 
@@ -630,7 +630,28 @@ __global__ void jacobi_shared
 
   
   // ### implement me ###
-
+  float phiR = 0.5 * (g[tx+1][ty] + g[tx][ty]);
+  float phiL = 0.5 * (g[tx-1][ty] + g[tx][ty]);
+  float phiU = 0.5 * (g[tx][ty+1] + g[tx][ty]);
+  float phiD = 0.5 * (g[tx][ty-1] + g[tx][ty]);
+  
+  if (x == 0)
+	  phiL = 0;
+  else if (x == nx - 1)
+	  phiR = 0;
+  
+  if (y == 0)
+	  phiD = 0;
+   else if (y == ny - 1)
+	   phiU = 0;
+  
+  // ### implement me ###
+	if (x < nx && y < ny) {
+		d_output[idx] = (1 / ( 1 + weight * (phiR+phiL+phiU+phiD ) ) )* 
+				( d_original[idx] + weight*( u[tx + 1][ty]*phiR + u[tx - 1][ty]*phiL + u[tx][ty + 1]*phiU + u[tx][ty - 1]*phiD ) );
+	}
+				
+  
 }
 
 
@@ -703,7 +724,63 @@ __global__ void jacobi_shared
   __syncthreads();
 
   
-  // ### implement me ###
+  	float3 phiR,phiL,phiU, phiD;
+  
+    phiR.x = 0.5 * (g[tx+1][ty].x+ g[tx][ty].x);
+	phiL.x = 0.5 * (g[tx-1][ty].x+ g[tx][ty].x);
+	phiU.x = 0.5 * (g[tx][ty+1].x+ g[tx][ty].x);
+	phiD.x = 0.5 * (g[tx][ty-1].x+ g[tx][ty].x);
+	
+    phiR.y= 0.5 * (g[tx+1][ty].y+ g[tx][ty].y);
+	phiL.y= 0.5 * (g[tx-1][ty].y+ g[tx][ty].y);
+	phiU.y= 0.5 * (g[tx][ty+1].y+ g[tx][ty].y);
+	phiD.y= 0.5 * (g[tx][ty-1].y+ g[tx][ty].y);
+	
+    phiR.z= 0.5 * (g[tx+1][ty].z+ g[tx][ty].z);
+	phiL.z= 0.5 * (g[tx-1][ty].z+ g[tx][ty].z);
+	phiU.z= 0.5 * (g[tx][ty+1].z+ g[tx][ty].z);
+	phiD.z= 0.5 * (g[tx][ty-1].z+ g[tx][ty].z);
+	
+	
+	if (x == 0) {
+		phiL.x = 0;
+		phiL.y = 0;
+		phiL.z = 0;
+	}
+	else if (x == nx - 1) {
+		phiR.x = 0;
+		phiR.y = 0;
+		phiR.z = 0;
+	}
+	
+	if (y == 0) {
+		phiD.x = 0;
+		phiD.y = 0;
+		phiD.z = 0;
+	}
+	else if (y == ny - 1) {
+		phiU.x = 0;
+		phiU.y = 0;
+		phiU.z = 0;
+		
+	}
+	// ### implement me ###
+	float3 res;
+	const char* original = (char*)d_original + y*pitchBytes + x*sizeof(float3);
+	const float3 origVal = *((float3*)original);
+	
+	if (x < nx && y < ny) {
+		res.x = (1 / ( 1 + weight * (phiR.x+phiL.x+phiU.x+phiD.x ) ) )* 
+					( origVal.x + weight*( u[tx + 1][ty].x*phiR.x + u[tx - 1][ty].x*phiL.x + u[tx][ty + 1].x*phiU.x + u[tx][ty - 1].x*phiD.x ) );
+		res.y = (1 / ( 1 + weight * (phiR.y+phiL.y+phiU.y+phiD.y ) ) )* 
+						( origVal.y + weight*( u[tx + 1][ty].y*phiR.y + u[tx - 1][ty].y*phiL.y + u[tx][ty + 1].y*phiU.y + u[tx][ty - 1].y*phiD.y ) );
+		res.z = (1 / ( 1 + weight * (phiR.z+phiL.z+phiU.z+phiD.z ) ) )* 
+						( origVal.z + weight*( u[tx + 1][ty].z*phiR.z + u[tx - 1][ty].z*phiL.z + u[tx][ty + 1].z*phiU.z + u[tx][ty - 1].z*phiD.z ) );
+
+		
+		 *((float3*)(((char*)d_output) + y*pitchBytes) + x) = res;
+	}
+	
 
 
 }
@@ -785,8 +862,27 @@ __global__ void sor_shared
   __syncthreads();
 
 
-  // ### implement me ###
+  float phiR = 0.5 * (g[tx+1][ty] + g[tx][ty]);
+  float phiL = 0.5 * (g[tx-1][ty] + g[tx][ty]);
+  float phiU = 0.5 * (g[tx][ty+1] + g[tx][ty]);
+  float phiD = 0.5 * (g[tx][ty-1] + g[tx][ty]);
+  
+  if (x == 0)
+		phiL = 0;
+	else if (x == nx - 1)
+		phiR = 0;
 
+	if (y == 0)
+		phiD = 0;
+	else if (y == ny - 1)
+		phiU = 0;
+   
+	if ((x < nx && y < ny && red && (x+y)%2==0) || (x < nx && y < ny && !red && (x+y)%2!=0)) {
+		d_output[idx] = overrelaxation*(1 / ( 1 + weight * (phiR+phiL+phiU+phiD ) ) )* 
+				( d_original[idx] + weight*( u[tx + 1][ty]*phiR + u[tx - 1][ty]*phiL + u[tx][ty + 1]*phiU + u[tx][ty - 1]*phiD ) )
+				+ (1 - overrelaxation)*u[tx][ty];
+	}
+		
 }
 
 
@@ -862,8 +958,62 @@ __global__ void sor_shared
   __syncthreads();
 
   
-  // ### implement me ###
+	float3 phiR,phiL,phiU, phiD;
 
+    phiR.x = 0.5 * (g[tx+1][ty].x+ g[tx][ty].x);
+	phiL.x = 0.5 * (g[tx-1][ty].x+ g[tx][ty].x);
+	phiU.x = 0.5 * (g[tx][ty+1].x+ g[tx][ty].x);
+	phiD.x = 0.5 * (g[tx][ty-1].x+ g[tx][ty].x);
+	
+    phiR.y= 0.5 * (g[tx+1][ty].y+ g[tx][ty].y);
+	phiL.y= 0.5 * (g[tx-1][ty].y+ g[tx][ty].y);
+	phiU.y= 0.5 * (g[tx][ty+1].y+ g[tx][ty].y);
+	phiD.y= 0.5 * (g[tx][ty-1].y+ g[tx][ty].y);
+	
+    phiR.z= 0.5 * (g[tx+1][ty].z+ g[tx][ty].z);
+	phiL.z= 0.5 * (g[tx-1][ty].z+ g[tx][ty].z);
+	phiU.z= 0.5 * (g[tx][ty+1].z+ g[tx][ty].z);
+	phiD.z= 0.5 * (g[tx][ty-1].z+ g[tx][ty].z);
+	
+	if (x == 0) {
+		phiL.x = 0;
+		phiL.y = 0;
+		phiL.z = 0;
+	}
+	else if (x == nx - 1) {
+		phiR.x = 0;
+		phiR.y = 0;
+		phiR.z = 0;
+	}
+	
+	if (y == 0) {
+		phiD.x = 0;
+		phiD.y = 0;
+		phiD.z = 0;
+	}
+	else if (y == ny - 1) {
+		phiU.x = 0;
+		phiU.y = 0;
+		phiU.z = 0;
+		
+	}
+	// ### implement me ###
+	float3 res;
+	const char* original = (char*)d_original + y*pitchBytes + x*sizeof(float3);
+	const float3 origVal = *((float3*)original);
+			
+	if ((x < nx && y < ny && red && (x+y)%2==0) || (x < nx && y < ny && !red && (x+y)%2!=0)) {
+		res.x = overrelaxation*(1 / ( 1 + weight * (phiR.x+phiL.x+phiU.x+phiD.x ) ) )* 
+					( origVal.x + weight*( u[tx + 1][ty].x*phiR.x + u[tx - 1][ty].x*phiL.x + u[tx][ty + 1].x*phiU.x + u[tx][ty - 1].x*phiD.x ) ) + (1 - overrelaxation)*u[tx][ty].x;
+		res.y = (1 / ( 1 + weight * (phiR.y+phiL.y+phiU.y+phiD.y ) ) )* 
+						( origVal.y + weight*( u[tx + 1][ty].y*phiR.y + u[tx - 1][ty].y*phiL.y + u[tx][ty + 1].y*phiU.y + u[tx][ty - 1].y*phiD.y ) ) + (1 - overrelaxation)*u[tx][ty].y;
+		res.z = (1 / ( 1 + weight * (phiR.z+phiL.z+phiU.z+phiD.z ) ) )* 
+						( origVal.z + weight*( u[tx + 1][ty].z*phiR.z + u[tx - 1][ty].z*phiL.z + u[tx][ty + 1].z*phiU.z + u[tx][ty - 1].z*phiD.z ) ) + (1 - overrelaxation)*u[tx][ty].z;
+
+		
+		 *((float3*)(((char*)d_output) + y*pitchBytes) + x) = res;
+	}
+	
 
 }
 
