@@ -657,15 +657,20 @@ __global__ void gpu_convolutionInterleavedRGB_tex_cm_d(float3 *outputImage,
 	if (x >= iWidth || y >= iHeight)
 		return;
 
-	const float xx = (float) (x - kRadiusX) + TEXTURE_OFFSET;
-	const float yy = (float) (y - kRadiusY) + TEXTURE_OFFSET;
+	const float xx = (float)(x) + TEXTURE_OFFSET;
+ 	const float yy = (float)(y) + TEXTURE_OFFSET;
+//	const float xx = (float) (x - kRadiusX) + TEXTURE_OFFSET;
+//	const float yy = (float) (y - kRadiusY) + TEXTURE_OFFSET;
 	const int kWidth = (kRadiusX << 1) + 1;
 	const int kHeight = (kRadiusY << 1) + 1;
 	float3 value = make_float3(0.0f, 0.0f, 0.0f);
 	float tmpKernel;
-	for (int yk = 0; yk < kHeight; yk++)
-		for (int xk = 0; xk < kWidth; xk++) {
-			tmpKernel = constKernel[yk * kWidth + xk];
+	for (int yk = -kRadiusY; yk <= kRadiusY; yk++)
+   	    for (int xk = -kRadiusX; xk <= kRadiusX; xk++)
+//	for (int yk = 0; yk < kHeight; yk++)
+//		for (int xk = 0; xk < kWidth; xk++) 
+		{
+			tmpKernel = constKernel[(yk+kRadiusY)*kWidth + xk+kRadiusX];//constKernel[yk * kWidth + xk];
 			float4 tmp = tex2D(tex_ImageF4, xx - xk, yy - yk);
 			value.x += tmp.x * tmpKernel;
 			value.y += tmp.y * tmpKernel;
