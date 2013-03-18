@@ -413,15 +413,15 @@ __global__ void gpu_convolutionGrayImage_tex_cm_d(float *outputImage,
 
   if (x >= iWidth || y >= iHeight) return;
 
-  const float xx = (float)(x - kRadiusX) + TEXTURE_OFFSET;
-  const float yy = (float)(y - kRadiusY) + TEXTURE_OFFSET;
+  const float xx = (float)(x) + TEXTURE_OFFSET;
+  const float yy = (float)(y) + TEXTURE_OFFSET;
   const int kWidth  = (kRadiusX<<1) + 1;
   const int kHeight = (kRadiusY<<1) + 1;
   float value = 0.0f;
 
-  for (int yk = 0; yk < kHeight; yk++)
-    for (int xk = 0; xk < kWidth; xk++)
-      value += tex2D(tex_Image, xx-xk, yy-yk) * constKernel[yk*kWidth + xk];
+  for (int yk = -kRadiusY; yk <= kRadiusY ; yk++)
+    for (int xk = -kRadiusX; xk <= kRadiusX ; xk++)
+      value += tex2D(tex_Image, xx-xk, yy-yk) * constKernel[(yk+kRadiusY)*kWidth + xk+kRadiusX];
 
   outputImage[y*iPitch + x] = value;
 }
