@@ -180,50 +180,6 @@ __global__ void gradient_magnitude_d(const float *inputImage, float *outputImage
 	  const int x = blockIdx.x * blockDim.x + threadIdx.x;
 	  const int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-//	  __shared__ float ux[BW+2][BH];
-//
-//
-//	  if (x < iWidth && y < iHeight) {
-//	    ux[threadIdx.x+1][threadIdx.y] = *((float*)((char*)inputImage + y*iPitchBytes)+x);
-//
-//	    if (x == 0) ux[threadIdx.x][threadIdx.y] = ux[threadIdx.x+1][threadIdx.y];
-//	    else if (threadIdx.x == 0) ux[threadIdx.x][threadIdx.y] = *((float*)((char*)inputImage + y*iPitchBytes)+x-1);
-//
-//	    if (x == (iWidth-1)) ux[threadIdx.x+2][threadIdx.y] = ux[threadIdx.x+1][threadIdx.y];
-//	    else if (threadIdx.x == blockDim.x-1) ux[threadIdx.x+2][threadIdx.y] = *((float*)((char*)inputImage + y*iPitchBytes)+x+1);
-//	  }
-//
-//	  __syncthreads();
-//
-//	__shared__ float uy[BW][BH+2];
-//
-//	if (x < iWidth && y < iHeight) {
-//		uy[threadIdx.x][threadIdx.y + 1] = *((float*) ((char*) inputImage + y
-//				* iPitchBytes) + x);
-//
-//		if (y == 0)
-//			uy[threadIdx.x][threadIdx.y] = uy[threadIdx.x][threadIdx.y + 1];
-//		else if (threadIdx.y == 0)
-//			uy[threadIdx.x][threadIdx.y] = *((float*) ((char*) inputImage + (y
-//					- 1) * iPitchBytes) + x);
-//
-//		if (y == (iHeight - 1))
-//			uy[threadIdx.x][threadIdx.y + 2] = uy[threadIdx.x][threadIdx.y + 1];
-//		else if (threadIdx.y == blockDim.y - 1)
-//			uy[threadIdx.x][threadIdx.y + 2] = *((float*) ((char*) inputImage
-//					+ (y + 1) * iPitchBytes) + x);
-//	}
-//
-//	__syncthreads();
-//	  
-//	  float tempDerX;
-//	  float tempDerY;
-//	  if (x < iWidth && y < iHeight) {
-//		 tempDerX = 0.5f*(ux[threadIdx.x + 2][threadIdx.y]-ux[threadIdx.x][threadIdx.y]);
-//		 tempDerY = 0.5f*(uy[threadIdx.x][threadIdx.y + 2] - uy[threadIdx.x][threadIdx.y]);
-//	    *((float*)(((char*)outputImage) + y*iPitchBytes)+ x) = sqrt( tempDerX*tempDerX + tempDerY*tempDerY );
-//	  }
-
 	  __shared__ float u[BW+2][BH+2];
 	
 	
@@ -270,50 +226,6 @@ __global__ void gradient_magnitude_d(const float3 *inputImage, float3 *outputIma
 //  // ### implement me ### 
 	const int x = blockIdx.x * blockDim.x + threadIdx.x;
 	const int y = blockIdx.y * blockDim.y + threadIdx.y;
-//	float3 xValue;
-//	__shared__ float3 ux[BW+2][BH];
-//
-//	if (x < iWidth && y < iHeight) {
-//		ux[threadIdx.x + 1][threadIdx.y] = *((float3*) ((char*) inputImage + y
-//				* iPitchBytes) + x);
-//
-//		if (x == 0)
-//			ux[threadIdx.x][threadIdx.y] = ux[threadIdx.x + 1][threadIdx.y];
-//		else if (threadIdx.x == 0)
-//			ux[threadIdx.x][threadIdx.y] = *((float3*) ((char*) inputImage + y
-//					* iPitchBytes) + x - 1);
-//
-//		if (x == (iWidth - 1))
-//			ux[threadIdx.x + 2][threadIdx.y] = ux[threadIdx.x + 1][threadIdx.y];
-//		else if (threadIdx.x == blockDim.x - 1)
-//			ux[threadIdx.x + 2][threadIdx.y] = *((float3*) ((char*) inputImage
-//					+ y * iPitchBytes) + x + 1);
-//	}
-//
-//	__syncthreads();
-//	
-//	  float3 yValue;
-//	__shared__ float3 uy[BW][BH+2];
-//
-//	if (x < iWidth && y < iHeight) {
-//		uy[threadIdx.x][threadIdx.y + 1] = *((float3*) ((char*) inputImage + y
-//				* iPitchBytes) + x);
-//
-//		if (y == 0)
-//			uy[threadIdx.x][threadIdx.y] = uy[threadIdx.x][threadIdx.y + 1];
-//		else if (threadIdx.y == 0)
-//			uy[threadIdx.x][threadIdx.y] = *((float3*) ((char*) inputImage + (y
-//					- 1) * iPitchBytes) + x);
-//
-//		if (y == (iHeight - 1))
-//			uy[threadIdx.x][threadIdx.y + 2] = uy[threadIdx.x][threadIdx.y + 1];
-//		else if (threadIdx.y == blockDim.y - 1)
-//			uy[threadIdx.x][threadIdx.y + 2] = *((float3*) ((char*) inputImage
-//					+ (y + 1) * iPitchBytes) + x);
-//	}
-//
-//	__syncthreads();
-
 	  __shared__ float3 u[BW+2][BH+2];
 	
 	

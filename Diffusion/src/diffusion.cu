@@ -264,7 +264,6 @@ __global__ void diffuse_nonlinear_isotrop_shared
 
   __shared__ float3 u[DIFF_BW+2][DIFF_BH+2];
   __shared__ float3 g[DIFF_BW+2][DIFF_BH+2];
-  float3 value;
 
 
   // load data into shared memory
@@ -466,13 +465,9 @@ __global__ void compute_tv_diffusivity_joined_shared
 		yValue.y = yValue.x;
 		yValue.z = yValue.x;
 		
-		float normX = sqrt(xValue.x*xValue.x + yValue.x*yValue.x);
-		float normY = normX;
-		float normZ = normX;
-		
-		tmpGrad.x = 1.0 / sqrt(normX*normX + TV_EPSILON);
-		tmpGrad.y = 1.0 / sqrt(normY*normY + TV_EPSILON);
-		tmpGrad.z = 1.0 / sqrt(normZ*normZ + TV_EPSILON);
+		tmpGrad.x = 1.0 / sqrt(xValue.x*xValue.x + yValue.x*yValue.x + TV_EPSILON);
+		tmpGrad.y = 1.0 / sqrt(xValue.x*xValue.x + yValue.x*yValue.x + TV_EPSILON);
+		tmpGrad.z = 1.0 / sqrt(xValue.x*xValue.x + yValue.x*yValue.x + TV_EPSILON);
 
 		*((float3*)(((char*)d_output) + y*pitchBytes) + x) = tmpGrad;
 	
@@ -539,14 +534,11 @@ __global__ void compute_tv_diffusivity_separate_shared
 				- u[threadIdx.x+1][threadIdx.y].y);
 		yValue.z = 0.5f * (u[threadIdx.x+1][threadIdx.y + 2].z
 				- u[threadIdx.x+1][threadIdx.y].z);
+
 		
-		float normX = sqrt(xValue.x*xValue.x + yValue.x*yValue.x);
-		float normY = sqrt(xValue.y*xValue.y + yValue.y*yValue.y);
-		float normZ = sqrt(xValue.z*xValue.z + yValue.z*yValue.z);
-		
-		tmpGrad.x = 1.0 / sqrt(normX*normX + TV_EPSILON);
-		tmpGrad.y = 1.0 / sqrt(normY*normY + TV_EPSILON);
-		tmpGrad.z = 1.0 / sqrt(normZ*normZ + TV_EPSILON);
+		tmpGrad.x = 1.0 / sqrt(xValue.x*xValue.x + yValue.x*yValue.x + TV_EPSILON);
+		tmpGrad.y = 1.0 / sqrt(xValue.x*xValue.x + yValue.x*yValue.x + TV_EPSILON);
+		tmpGrad.z = 1.0 / sqrt(xValue.x*xValue.x + yValue.x*yValue.x + TV_EPSILON);
 
 		*((float3*)(((char*)d_output) + y*pitchBytes) + x) = tmpGrad;	
 	}
